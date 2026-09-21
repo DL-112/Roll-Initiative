@@ -1,27 +1,45 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { CharacterSummary } from "../types/character";
 import { CharacterCard } from "../components/CharacterCard";
+import { loadCharacters, deleteCharacter } from "../services/storage";
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const [characters, setCharacters] = useState<CharacterSummary[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const [characters] = useState<CharacterSummary[]>([
-    {
-      id: "1",
-      name: "Thorin Ironfist",
-      race: "Dwarf",
-      class: "Paladin",
-      level: 5,
-    },
-    {
-      id: "2",
-      name: "Elion Moonwhisper",
-      race: "Elf",
-      class: "Wizard",
-      level: 3,
-    },
-  ]);
+  const refreshCharacters = async () => {
+    try {
+      setIsLoading(true);
+      const data = await loadCharacters();
+      setCharacters(data);
+    } catch (err) {
+      console.error("Failed to load characters:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshCharacters();
+  }, []);
+
+  const handleDeleteCharacter = async (id: string) => {
+    const confirmDelete = confirm(
+      "Are you sure you want to delete this character?",
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await deleteCharacter(id);
+      await refreshCharacters(); // Refresh list after deletion
+    } catch (err) {
+      alert(
+        `Failed to delete character: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  };
 
   return (
     <div style={styles.container}>
@@ -29,7 +47,7 @@ export function Dashboard() {
         <h1 style={{ margin: 0 }}>Roll Initiative</h1>
         <button
           style={styles.primaryButton}
-          onClick={() => alert("Create New Character modal coming next!")}
+          onClick={() => navigate("/create")}
         >
           + New Character
         </button>
@@ -37,15 +55,26 @@ export function Dashboard() {
 
       <main style={{ marginTop: "20px" }}>
         <h2>Your Characters</h2>
-        <div style={styles.cardGrid}>
-          {characters.map((char) => (
-            <CharacterCard
-              key={char.id}
-              character={char}
-              onClick={(id) => navigate(`/character/${id}`)}
-            />
-          ))}
-        </div>
+
+        {isLoading ? (
+          <p>Loading characters from file system...</p>
+        ) : characters.length === 0 ? (
+          <p style={{ color: "#666" }}>
+            No characters found in storage. Click "+ New Character" to create
+            one!
+          </p>
+        ) : (
+          <div style={styles.cardGrid}>
+            {characters.map((char) => (
+              <CharacterCard
+                key={char.id}
+                character={char}
+                onClick={(id) => navigate(`/character/${id}`)}
+                onDelete={handleDeleteCharacter}
+              />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );
