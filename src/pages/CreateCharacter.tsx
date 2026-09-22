@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { Character } from "../types/character";
 import { saveCharacter } from "../services/storage";
 import { StepIndicator } from "../components/character-wizard/StepIndicator";
 import { StepClass } from "../components/character-wizard/StepClass";
-import { StepOrigin } from "../components/character-wizard/StepOrigin";
+import {
+  StepOrigin,
+  OriginData,
+} from "../components/character-wizard/StepOrigin";
 import { StepStats } from "../components/character-wizard/StepStats";
 import { StepAlignment } from "../components/character-wizard/StepAlignment";
 import { StepDetails } from "../components/character-wizard/StepDetails";
@@ -16,7 +19,13 @@ export function CreateCharacter() {
 
   const [formData, setFormData] = useState({
     class: "Fighter",
-    race: "Human",
+    origin: {
+      background: "Folk Hero",
+      equipment: [] as string[],
+      species: "Human",
+      backstory: "",
+      languages: ["Common"],
+    } as OriginData,
     stats: {
       strength: 10,
       dexterity: 10,
@@ -27,14 +36,24 @@ export function CreateCharacter() {
     },
     alignment: "True Neutral",
     name: "",
-    background: "Folk Hero",
     level: 1,
   });
 
-  // Step validation check (Step 5 requires character name)
+  // Step validation check
   const isStepValid = (step: number) => {
     if (step === 1) return formData.class !== "";
-    if (step === 2) return formData.race !== "";
+
+    // Step 2 validation: Requires ALL 5 mini-steps to be completed
+    if (step === 2) {
+      return (
+        formData.origin.background.trim().length > 0 &&
+        formData.origin.equipment.length > 0 &&
+        formData.origin.species.trim().length > 0 &&
+        formData.origin.backstory.trim().length >= 5 &&
+        formData.origin.languages.length > 0
+      );
+    }
+
     if (step === 3)
       return Object.values(formData.stats).every((v) => v >= 1 && v <= 30);
     if (step === 4) return formData.alignment !== "";
@@ -59,6 +78,16 @@ export function CreateCharacter() {
     }));
   };
 
+  const handleOriginChange = (updatedOrigin: Partial<OriginData>) => {
+    setFormData((prev) => ({
+      ...prev,
+      origin: {
+        ...prev.origin,
+        ...updatedOrigin,
+      },
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isStepValid(5)) return;
@@ -67,8 +96,18 @@ export function CreateCharacter() {
       setIsSubmitting(true);
       const newCharacter: Character = {
         id: Date.now().toString(),
-        ...formData,
-      };
+        class: formData.class,
+        race: formData.origin.species,
+        background: formData.origin.background,
+        stats: formData.stats,
+        alignment: formData.alignment,
+        name: formData.name,
+        level: formData.level,
+        // Optional: Include additional origin fields if your Character type supports them
+        equipment: formData.origin.equipment,
+        backstory: formData.origin.backstory,
+        languages: formData.origin.languages,
+      } as unknown as Character;
 
       await saveCharacter(newCharacter);
       navigate(`/character/${newCharacter.id}`);
@@ -100,8 +139,8 @@ export function CreateCharacter() {
 
         {currentStep === 2 && (
           <StepOrigin
-            selectedRace={formData.race}
-            onSelectRace={(race) => setFormData((p) => ({ ...p, race }))}
+            originData={formData.origin}
+            onChange={handleOriginChange}
           />
         )}
 
@@ -129,7 +168,7 @@ export function CreateCharacter() {
         {currentStep === 5 && (
           <StepDetails
             name={formData.name}
-            background={formData.background}
+            background={formData.origin.background}
             level={formData.level}
             onChange={handleChange}
           />
@@ -179,7 +218,7 @@ export function CreateCharacter() {
   );
 }
 
-const styles = {
+const styles: Record<string, CSSProperties> = {
   container: {
     padding: "24px",
     fontFamily: "sans-serif",
