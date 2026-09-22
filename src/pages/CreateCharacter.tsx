@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Character } from "../types/character";
 import { saveCharacter } from "../services/storage";
 import { StepIndicator } from "../components/character-wizard/StepIndicator";
-import { StepBasics } from "../components/character-wizard/StepBasics";
-import { StepClassRace } from "../components/character-wizard/StepClassRace";
-import { StepStats } from "../components/character-wizard/Stepstats";
+import { StepClass } from "../components/character-wizard/StepClass";
+import { StepOrigin } from "../components/character-wizard/StepOrigin";
+import { StepStats } from "../components/character-wizard/StepStats";
+import { StepAlignment } from "../components/character-wizard/StepAlignment";
+import { StepDetails } from "../components/character-wizard/StepDetails";
 
 export function CreateCharacter() {
   const navigate = useNavigate();
@@ -13,12 +15,8 @@ export function CreateCharacter() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const [formData, setFormData] = useState({
-    name: "",
     class: "Fighter",
     race: "Human",
-    level: 1,
-    background: "Folk Hero",
-    alignment: "True Neutral",
     stats: {
       strength: 10,
       dexterity: 10,
@@ -27,28 +25,33 @@ export function CreateCharacter() {
       wisdom: 10,
       charisma: 10,
     },
+    alignment: "True Neutral",
+    name: "",
+    background: "Folk Hero",
+    level: 1,
   });
 
-  const isStep1Valid = formData.name.trim().length > 0;
-  const isStep2Valid =
-    formData.class !== "" && formData.race !== "" && formData.level >= 1;
-  const isStep3Valid = Object.values(formData.stats).every(
-    (val) => val >= 1 && val <= 30,
-  );
+  // Step validation check (Step 5 requires character name)
+  const isStepValid = (step: number) => {
+    if (step === 1) return formData.class !== "";
+    if (step === 2) return formData.race !== "";
+    if (step === 3)
+      return Object.values(formData.stats).every((v) => v >= 1 && v <= 30);
+    if (step === 4) return formData.alignment !== "";
+    if (step === 5) return formData.name.trim().length > 0;
+    return true;
+  };
 
   const handleNext = () => {
-    if (currentStep === 1 && !isStep1Valid) return;
-    if (currentStep === 2 && !isStep2Valid) return;
-    setCurrentStep((prev) => Math.min(prev + 1, 3));
+    if (!isStepValid(currentStep)) return;
+    setCurrentStep((prev) => Math.min(prev + 1, 5));
   };
 
   const handleBack = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -56,19 +59,9 @@ export function CreateCharacter() {
     }));
   };
 
-  const handleStatChange = (
-    stat: keyof typeof formData.stats,
-    value: number,
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      stats: { ...prev.stats, [stat]: value },
-    }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isStep1Valid || !isStep2Valid || !isStep3Valid) return;
+    if (!isStepValid(5)) return;
 
     try {
       setIsSubmitting(true);
@@ -81,7 +74,6 @@ export function CreateCharacter() {
       navigate(`/character/${newCharacter.id}`);
     } catch (err) {
       console.error("Failed to create character:", err);
-      alert("Error creating character.");
     } finally {
       setIsSubmitting(false);
     }
@@ -100,22 +92,47 @@ export function CreateCharacter() {
 
       <form onSubmit={handleSubmit} style={styles.formCard}>
         {currentStep === 1 && (
-          <StepBasics formData={formData} onChange={handleChange} />
+          <StepClass
+            selectedClass={formData.class}
+            onSelectClass={(cls) => setFormData((p) => ({ ...p, class: cls }))}
+          />
         )}
 
         {currentStep === 2 && (
-          <StepClassRace
-            selectedClass={formData.class}
+          <StepOrigin
             selectedRace={formData.race}
-            level={formData.level}
-            onSelectClass={(cls) => setFormData((p) => ({ ...p, class: cls }))}
             onSelectRace={(race) => setFormData((p) => ({ ...p, race }))}
-            onChangeLevel={handleChange}
           />
         )}
 
         {currentStep === 3 && (
-          <StepStats stats={formData.stats} onStatChange={handleStatChange} />
+          <StepStats
+            stats={formData.stats}
+            onStatChange={(stat, value) =>
+              setFormData((p) => ({
+                ...p,
+                stats: { ...p.stats, [stat]: value },
+              }))
+            }
+          />
+        )}
+
+        {currentStep === 4 && (
+          <StepAlignment
+            selectedAlignment={formData.alignment}
+            onSelectAlignment={(alignment) =>
+              setFormData((p) => ({ ...p, alignment }))
+            }
+          />
+        )}
+
+        {currentStep === 5 && (
+          <StepDetails
+            name={formData.name}
+            background={formData.background}
+            level={formData.level}
+            onChange={handleChange}
+          />
         )}
 
         <div style={styles.buttonRow}>
@@ -131,19 +148,15 @@ export function CreateCharacter() {
             <div />
           )}
 
-          {currentStep < 3 ? (
+          {currentStep < 5 ? (
             <button
               type="button"
               onClick={handleNext}
-              disabled={currentStep === 1 ? !isStep1Valid : !isStep2Valid}
+              disabled={!isStepValid(currentStep)}
               style={{
                 ...styles.primaryButton,
-                opacity: (currentStep === 1 ? isStep1Valid : isStep2Valid)
-                  ? 1
-                  : 0.5,
-                cursor: (currentStep === 1 ? isStep1Valid : isStep2Valid)
-                  ? "pointer"
-                  : "not-allowed",
+                opacity: isStepValid(currentStep) ? 1 : 0.5,
+                cursor: isStepValid(currentStep) ? "pointer" : "not-allowed",
               }}
             >
               Next Step →
@@ -151,10 +164,10 @@ export function CreateCharacter() {
           ) : (
             <button
               type="submit"
-              disabled={isSubmitting || !isStep3Valid}
+              disabled={isSubmitting || !isStepValid(5)}
               style={{
                 ...styles.primaryButton,
-                opacity: isSubmitting || !isStep3Valid ? 0.5 : 1,
+                opacity: isSubmitting || !isStepValid(5) ? 0.5 : 1,
               }}
             >
               {isSubmitting ? "Saving..." : "Finish & Create Character"}

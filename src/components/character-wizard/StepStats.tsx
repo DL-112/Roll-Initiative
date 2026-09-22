@@ -13,13 +13,11 @@ interface StepStatsProps {
 export function StepStats({ stats, onStatChange }: StepStatsProps) {
   return (
     <div style={styles.stepContent}>
-      <h2>Step 3: Assign Ability Scores</h2>
+      <h2>Step 3: Ability Scores</h2>
       <div style={styles.statsGrid}>
         {(Object.keys(stats) as Array<keyof typeof stats>).map((stat) => (
           <div key={stat} style={styles.statBox}>
-            <label style={{ ...styles.label, textTransform: "capitalize" }}>
-              {stat}
-            </label>
+            <label style={styles.label}>{stat}</label>
             <input
               type="number"
               min={1}
@@ -44,8 +42,8 @@ const styles = {
   label: {
     fontSize: "14px",
     fontWeight: "bold",
-    marginBottom: "6px",
     color: "#374151",
+    textTransform: "capitalize" as const,
   },
   statsGrid: {
     display: "grid",
